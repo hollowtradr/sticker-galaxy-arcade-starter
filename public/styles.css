@@ -1,0 +1,424 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   styles.css — Sticker Galaxy Arcade Starter Template
+   
+   Design principle: dark space theme, gold accent, readable on mobile.
+   Everything fits in 390px width (Telegram Mini App minimum).
+   
+   CUSTOMIZATION GUIDE
+     - Colors: change --color-* variables in :root
+     - Font: swap "monospace" in body for any Google Font import
+     - Layout: each section is a flex column — adjust gap and padding per section
+   
+   AI ASSISTANTS
+     The class names here map to HTML IDs and classes in index.html.
+     Don't rename classes without updating index.html.
+───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Reset + base ─────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Core palette — change these to rebrand */
+  --color-bg:         #1a1a2e;
+  --color-surface:    #16213e;
+  --color-border:     #2d2d5e;
+  --color-accent:     #e2c04a;    /* Gold */
+  --color-accent-dim: #a8862e;
+  --color-text:       #e0e0e0;
+  --color-text-muted: #888;
+  --color-win:        #4caf7d;
+  --color-loss:       #e05c5c;
+  --color-info:       #5c9de0;
+
+  /* Layout */
+  --radius:   8px;
+  --radius-lg: 14px;
+
+  /* Typography */
+  --font-base: 'Courier New', Courier, monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-base);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ── App shell ────────────────────────────────────────────────────────────── */
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 12px 16px 24px;
+  gap: 16px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.game-subtitle {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.header-right {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-label,
+.balance-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.player-name {
+  font-size: 13px;
+  color: var(--color-accent);
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+.balance-display {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.balance-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.plays-display {
+  font-size: 11px;
+}
+.plays-ok    { color: var(--color-win); }
+.plays-empty { color: var(--color-loss); }
+
+/* ── Overlay messages ─────────────────────────────────────────────────────── */
+
+.overlay-msg {
+  text-align: center;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.loading-msg {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  border: 1px solid var(--color-border);
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+
+.error-msg {
+  background: rgba(224, 92, 92, 0.15);
+  color: var(--color-loss);
+  border: 1px solid var(--color-loss);
+}
+
+@keyframes pulse {
+  from { opacity: 0.7; }
+  to   { opacity: 1.0; }
+}
+
+/* ── Canvas ───────────────────────────────────────────────────────────────── */
+
+.canvas-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+#game-canvas {
+  display: block;
+  border-radius: var(--radius);
+  /* Canvas is 290×160 — fits well on 390px wide screens */
+}
+
+/* ── Result display ─────────────────────────────────────────────────────────  */
+
+.result-display {
+  width: 100%;
+  text-align: center;
+  min-height: 0;
+  transition: min-height 0.2s;
+}
+
+.result-display.result-win,
+.result-display.result-loss {
+  min-height: 80px;
+  padding: 8px;
+  border-radius: var(--radius);
+  animation: fadeIn 0.3s ease;
+}
+
+.result-win  { background: rgba(76, 175, 125, 0.15); border: 1px solid var(--color-win); }
+.result-loss { background: rgba(224, 92, 92, 0.15);  border: 1px solid var(--color-loss); }
+
+.result-headline {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.result-win  .result-headline { color: var(--color-win); }
+.result-loss .result-headline { color: var(--color-loss); }
+
+.result-roll    { font-size: 13px; color: var(--color-text-muted); }
+.result-payout  { color: var(--color-win);   font-weight: bold; margin-top: 4px; }
+.result-loss-text { color: var(--color-loss); font-weight: bold; margin-top: 4px; }
+.result-reward  { color: var(--color-accent); font-size: 12px; margin-top: 2px; }
+.result-trophy  { color: var(--color-accent); font-size: 13px; font-weight: bold; margin-top: 6px; }
+.result-rank    { color: var(--color-text-muted); font-size: 11px; margin-top: 4px; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Wager controls ─────────────────────────────────────────────────────────  */
+
+.wager-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wager-label {
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.wager-value {
+  color: var(--color-accent);
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.wager-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wager-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.wager-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-bg);
+}
+
+.wager-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-bg);
+}
+
+.odds-note {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+
+.btn-primary,
+.btn-secondary {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-base);
+  font-weight: bold;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #1a1a2e;
+  font-size: 18px;
+  padding: 14px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+.btn-secondary:hover {
+  border-color: var(--color-accent-dim);
+  color: var(--color-accent);
+}
+
+.btn-small {
+  width: auto;
+  white-space: nowrap;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.action-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-roll {
+  border-radius: var(--radius-lg);
+  letter-spacing: 1px;
+}
+
+/* ── History ──────────────────────────────────────────────────────────────── */
+
+.history-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+}
+
+.history-title {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.history-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+.history-empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.history-win  { background: rgba(76, 175, 125, 0.1); }
+.history-loss { background: rgba(224, 92, 92, 0.1); }
+
+.history-dice    { color: var(--color-text);      font-weight: bold; }
+.history-outcome { color: var(--color-text-muted); }
+.history-win  .history-outcome { color: var(--color-win); }
+.history-loss .history-outcome { color: var(--color-loss); }
+.history-wager   { color: var(--color-text-muted); margin-left: auto; }
+.history-bonus   { color: var(--color-accent);    font-size: 11px; }
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+
+.game-footer {
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  margin-top: auto;
+}
+
+.footer-brand { color: var(--color-accent-dim); }
+.footer-sep   { margin: 0 6px; }
+
+/* ── Mobile optimizations ─────────────────────────────────────────────────── */
+
+@media (max-width: 390px) {
+  #app { padding: 8px 12px 20px; gap: 12px; }
+  .game-title { font-size: 17px; }
+  .balance-value { font-size: 18px; }
+  .btn-primary { font-size: 16px; padding: 12px; }
+}
+
+/* Prevent iOS overscroll bounce from feeling weird in iframe */
+body { overscroll-behavior: none; }
+
+/* Prevent text selection during game interactions */
+.action-section,
+.wager-controls { user-select: none; -webkit-user-select: none; }

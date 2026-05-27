@@ -1,0 +1,70 @@
+{
+  "_comment": "This manifest is submitted to the Galactic Council via /council propose_minigame",
+  "_docs": "Full field reference: https://docs.stickergalaxy.io — §8 The Game Manifest",
+
+  "name": "YOUR GAME NAME",
+  "studio": "YOUR STUDIO NAME",
+  "studio_ton_wallet": "EQ... (your TON wallet address)",
+
+  "genre": "dice-roll",
+  "sector": "cantina",
+
+  "description": "One sentence description of what players do in your game.",
+
+  "url": "https://your-game.example.com",
+  "sandbox_url": "https://sandbox.your-game.example.com",
+
+  "wager_enabled": true,
+  "trophy_enabled": true,
+
+  "max_score": 1000,
+  "perfect_score_achievable": false,
+
+  "play_duration_range_seconds": [10, 60],
+
+  "cosmetic_items": [
+    {
+      "_comment": "Define real-money cosmetics here. Must be cosmetic-only (no stat effect).",
+      "item_id": "golden_dice",
+      "name": "Golden Dice",
+      "description": "A shimmering set of golden dice. No stat effect — pure flex.",
+      "price_ton": 0.1,
+      "icon_url": "https://your-game.example.com/assets/golden_dice.png"
+    }
+  ],
+
+  "studio_trophies": [
+    {
+      "trophy_id": "first_win",
+      "name": "Lucky Roll",
+      "description": "Won your first dice roll",
+      "condition": "first_win",
+      "icon_url": "https://your-game.example.com/assets/trophy_lucky.png"
+    },
+    {
+      "trophy_id": "veteran_roller",
+      "name": "Veteran Roller",
+      "description": "Completed 50 dice rolls",
+      "condition": "plays_cumulative:50",
+      "icon_url": "https://your-game.example.com/assets/trophy_veteran.png"
+    }
+  ],
+
+  "tournament": {
+    "schedule": "monthly",
+    "entry_fee_ton": 1,
+    "prize_distribution": [
+      {"rank": 1, "prize_type": "ton_payout", "value_ton": 0},
+      {"rank": 2, "prize_type": "telegram_gift"},
+      {"rank": 3, "prize_type": "telegram_gift"},
+      {"rank": "4-10", "prize_type": "cosmetic_trophy"}
+    ]
+  },
+
+  "version": "1.0.0",
+
+  "_required_fields_for_review": [
+    "name", "studio", "studio_ton_wallet", "genre", "sector",
+    "url", "max_score", "play_duration_range_seconds"
+  ]
+}

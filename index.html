@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <title>Cantina Dice — Sticker Galaxy Arcade</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <!-- ──────────────────────────────────────────────────────────────────────
+       STICKER GALAXY ARCADE STARTER TEMPLATE
+       Demo game: Cantina Dice — beat-the-house 2d6 wager game
+
+       HTML STRUCTURE (don't move these IDs — game.ts and ui.ts reference them):
+         #player-name       — player's display name from session
+         #midi-balance      — player's current midi balance (integer)
+         #plays-remaining   — "X/3 plays today"
+         #game-canvas       — HTML5 Canvas for dice rendering (or PixiJS root)
+         #wager-input       — range input for wager amount
+         #wager-display     — text showing the current wager value
+         #roll-btn          — the main action button
+         #result-display    — shows win/loss result after each round
+         #error-display     — shows error messages
+         #loading-display   — shows loading states
+         #history-list      — last 3 rounds
+  ────────────────────────────────────────────────────────────────────────── -->
+
+  <div id="app">
+
+    <!-- ── Header ───────────────────────────────────────────────────────── -->
+    <header class="game-header">
+      <div class="header-left">
+        <div class="game-title">🎲 Cantina Dice</div>
+        <div class="game-subtitle">Beat the house. Roll ≥ 8 to win.</div>
+      </div>
+      <div class="header-right">
+        <div class="player-info">
+          <span class="player-label">Playing as</span>
+          <span id="player-name" class="player-name">—</span>
+        </div>
+        <div class="balance-display">
+          <span class="balance-label">Midi</span>
+          <span id="midi-balance" class="balance-value">—</span>
+        </div>
+        <div id="plays-remaining" class="plays-display plays-ok">— plays today</div>
+      </div>
+    </header>
+
+    <!-- ── Loading / Error overlays ─────────────────────────────────────── -->
+    <div id="loading-display" class="overlay-msg loading-msg" style="display:none">Loading…</div>
+    <div id="error-display" class="overlay-msg error-msg" style="display:none"></div>
+
+    <!-- ── Dice canvas ───────────────────────────────────────────────────── -->
+    <section class="canvas-section">
+      <!--
+        RENDERING NOTE:
+        This canvas is used by the plain Canvas2D renderer in ui.ts.
+
+        To switch to PixiJS:
+          1. Uncomment the PixiJS import in ui.ts
+          2. Change this element to: <div id="game-canvas"></div>
+          3. PixiJS will append its own <canvas> inside this div
+          4. Remove the drawDice() calls from ui.ts and replace with PixiJS sprites
+
+        To switch to a CSS/DOM-based renderer (easiest for text games):
+          Just use a regular <div> and innerHTML. No canvas needed.
+      -->
+      <canvas
+        id="game-canvas"
+        width="290"
+        height="160"
+        aria-label="Dice display"
+        role="img"
+      ></canvas>
+
+      <!-- Result display — shown after each roll -->
+      <div id="result-display" class="result-display"></div>
+    </section>
+
+    <!-- ── Wager controls ────────────────────────────────────────────────── -->
+    <section class="wager-section">
+      <div class="wager-label">
+        Wager: <span id="wager-display" class="wager-value">50</span> midi
+      </div>
+
+      <div class="wager-controls">
+        <button id="min-bet-btn" class="btn-secondary btn-small">Min (10)</button>
+        <input
+          type="range"
+          id="wager-input"
+          min="10"
+          max="200"
+          value="50"
+          step="10"
+          class="wager-slider"
+          aria-label="Wager amount"
+        />
+        <button id="max-bet-btn" class="btn-secondary btn-small">Max</button>
+      </div>
+
+      <div class="odds-note">
+        Roll ≥ 8 → WIN 2× wager &nbsp;|&nbsp; Roll &lt; 8 → lose wager
+      </div>
+    </section>
+
+    <!-- ── Main action button ────────────────────────────────────────────── -->
+    <section class="action-section">
+      <button id="roll-btn" class="btn-primary btn-roll">
+        Roll Dice
+      </button>
+
+      <!-- Extra play purchase (calls sdk.requestPurchase) -->
+      <button id="extra-play-btn" class="btn-secondary btn-extra" style="display:none">
+        Buy Extra Play (0.1 TON)
+      </button>
+    </section>
+
+    <!-- ── Round history ─────────────────────────────────────────────────── -->
+    <section class="history-section">
+      <div class="history-title">Last Rolls</div>
+      <ul id="history-list" class="history-list">
+        <li class="history-empty">No rolls yet — place your first wager!</li>
+      </ul>
+    </section>
+
+    <!-- ── Footer ───────────────────────────────────────────────────────── -->
+    <footer class="game-footer">
+      <span class="footer-brand">Sticker Galaxy Arcade</span>
+      <span class="footer-sep">·</span>
+      <span class="footer-studio">Starter Template v1.0</span>
+    </footer>
+
+  </div><!-- /app -->
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
