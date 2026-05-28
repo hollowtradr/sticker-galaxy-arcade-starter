@@ -171,7 +171,10 @@ async function walletFetch<T>(
 function getTonConnect(): TonConnectUI {
   if (!_tcUI) {
     _tcUI = new TonConnectUI({
-      manifestUrl: 'https://stickergalaxy.io/tonconnect-manifest.json',
+      manifestUrl: 'https://babyyoda-bot.vercel.app/tonconnect-manifest.json',
+      actionsConfiguration: {
+        twaReturnUrl: 'https://t.me/babyyodatonbot' as `${string}://${string}`,
+      },
     })
   }
   return _tcUI
