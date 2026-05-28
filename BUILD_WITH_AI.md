@@ -10,6 +10,25 @@ The pattern is simple:
 
 ---
 
+## Before You Build Monetization UI: Read the YODA Tier Schema
+
+If you are building any UI that shows prices, revive prompts, daily play counts, or cosmetic discounts, **read the `yoda_tier_perks` block in `manifest.json` first**. The host applies these values server-side; your UI should reflect them accurately.
+
+Key rules for AI assistants building monetization features:
+
+1. **Daily play cap is tier-dependent.** Do not hardcode `3` plays. Read the player's tier from the session context and use `daily_plays_remaining` from `GET /arcade/v0/session`.
+2. **Free revive count is tier-dependent.** A knight gets 1 free revive per day; a grandmaster gets 3. Show the correct count, not a fixed value.
+3. **Cosmetic discount is applied by the host.** Do not calculate discounts client-side. The payment URL returned by `POST /arcade/v0/purchase` already reflects the discount. Show the discounted price from the API response, not a manually computed one.
+4. **Trophy midi bonus is host-side.** You do not need to calculate or display it in-game. It shows on the daily trophy payout notification, not on the result screen.
+5. **Midi balance ≠ round earnings.** The running midi balance is the player's total wallet. Round earnings are in `midi_awarded` from `POST /arcade/v0/result`. Display them separately — show round earnings on the result screen, and update the wallet display from the session balance.
+6. **Do not invent a YODA→TON or YODA→midi conversion.** YODA held unlocks perks. YODA spent is a direct purchase. These are different paths. There is no in-game conversion mechanic.
+
+For the full perk matrix and pricing rationale, see:
+- `ARCADE_ECONOMICS.md` §3.1 (per-event pricing) and §3.2 (hold-tier perks)
+- `ARCADE_SDK_v0.md` §9 (`yoda_tier_perks` schema and override rules)
+
+---
+
 ## Step 0 — Load the SDK into your AI's context
 
 Paste this into Cursor's chat first, every new session:

@@ -61,7 +61,18 @@
     ]
   },
 
-  "version": "1.0.0",
+  "payout_per_point": 1.0,
+  "_payout_comment": "Multiplier: midi_awarded = min(1000, floor(score * payout_per_point)). Default 1.0 works for games with max_score ~1000. Set to 0.1 for max_score 10000, or 10 for max_score 100.",
+
+  "yoda_tier_perks": {
+    "_comment": "Optional. Overrides platform defaults per-game. Omit any sub-key to inherit platform default. See ARCADE_SDK_v0.md §9 for validation rules.",
+    "daily_plays":           {"initiate": 3, "padawan": 4, "knight": 5, "master": 6, "grandmaster": 7},
+    "free_revives_per_day":  {"initiate": 0, "padawan": 0, "knight": 1, "master": 2, "grandmaster": 3},
+    "cosmetic_discount_pct": {"initiate": 0, "padawan": 5, "knight": 15, "master": 20, "grandmaster": 25},
+    "trophy_midi_bonus_pct": {"initiate": 0, "padawan": 5, "knight": 15, "master": 25, "grandmaster": 40}
+  },
+
+  "version": "0.2.0",
 
   "_required_fields_for_review": [
     "name", "studio", "studio_ton_wallet", "genre", "sector",

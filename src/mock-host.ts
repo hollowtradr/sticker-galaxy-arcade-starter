@@ -167,11 +167,14 @@ export async function mockPostResult(
 
   const state = loadState()
 
-  // Simple midi award formula: score out of 1000 (our demo max), scaled to 1000 midi cap
-  // The real backend uses your manifest's max_score. Adjust MAX_SCORE to match yours.
-  const MAX_SCORE = 1000
+  // Midi award formula using payout_per_point from manifest.
+  // Real backend: midi_awarded = min(1000, floor(score * manifest.payout_per_point))
+  // Mock hardcodes PAYOUT_PER_POINT = 1.0 (the manifest default).
+  // Tune payout_per_point in manifest.json to fit your game's score distribution.
+  // Cap stays at 1000 midi per play regardless of multiplier.
+  const PAYOUT_PER_POINT = 1.0 // See manifest.json: payout_per_point
   const midiAwarded = outcome === 'win'
-    ? Math.min(1000, Math.floor((score / MAX_SCORE) * 1000))
+    ? Math.min(1000, Math.floor(score * PAYOUT_PER_POINT))
     : 0
 
   state.midi_balance += midiAwarded

@@ -143,6 +143,28 @@ A council member will review within 7 days. Hollow has final approval.
 
 ---
 
+## YODA Holder Perks
+
+Players who hold $YODA unlock compounding perks on every axis of the Arcade — automatically, with no spending required.
+
+| Tier | $YODA held | Daily plays | Free revives/day | Cosmetic discount | Trophy midi bonus |
+|---|---|---|---|---|---|
+| initiate | 0 | 3 | 0 | 0% | +0% |
+| padawan | 1,000 ($3.68) | 4 | 0 | 5% | +5% |
+| knight | 10,000 ($37) | 5 | 1 | 15% | +15% |
+| master | 50,000 ($184) | 6 | 2 | 20% | +25% |
+| grandmaster | 250,000 ($920) | 7 | 3 | 25% | +40% |
+
+These tiers are platform-wide — your game gets them automatically. You can override values per-game using the `yoda_tier_perks` block in `manifest.json`.
+
+**Trophy midi bonus** is a percentage boost on top of the base daily trophy payout (§6 of ARCADE_ECONOMICS.md). It's paid in midi by the host — not in real money. The one-way valve holds: midi never converts to TON, YODA, or USD.
+
+**Midi balance vs. round earnings:** The midi balance shown in the top-right of the Sticker Galaxy shell is your **total wallet balance** — NOT the midi you earned this round. Round earnings appear on the result screen after each play. Displaying round earnings separately from the running balance is intentional UX; do not conflate them in your game UI.
+
+Your game receives a player's tier as part of the session context (available in `GET /arcade/v0/session` via `yoda_tier`). Use it to show tier-specific UI if you want — e.g., displaying the player's free revive count or cosmetic discount at the start of each session.
+
+---
+
 ## What you'll earn
 
 **70% of every real-money purchase** made from within your game's context — midi top-ups, cosmetic sales, extra-play unlocks, tournament entries. Paid monthly in TON to the wallet in your manifest.
