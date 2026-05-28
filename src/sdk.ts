@@ -172,8 +172,12 @@ function getTonConnect(): TonConnectUI {
   if (!_tcUI) {
     _tcUI = new TonConnectUI({
       manifestUrl: 'https://babyyoda-bot.vercel.app/tonconnect-manifest.json',
+      // After wallet approval, return the user back into the Sticker Galaxy mini-app.
+      // SDK consumers should override this to include their game's id, e.g.
+      // 'https://t.me/babyyodatonbot?startapp=arcade_<game_id>' so the platform
+      // shell can deep-link them back into the running game.
       actionsConfiguration: {
-        twaReturnUrl: 'https://t.me/babyyodatonbot' as `${string}://${string}`,
+        twaReturnUrl: 'https://t.me/babyyodatonbot?startapp=arcade' as `${string}://${string}`,
       },
     })
   }
