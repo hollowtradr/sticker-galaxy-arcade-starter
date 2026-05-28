@@ -10,6 +10,45 @@ The pattern is simple:
 
 ---
 
+## Architecture — Wallet & Payments Are Shell-Owned
+
+You do NOT call TonConnect or `tg.openInvoice` directly. The Sticker Galaxy
+platform shell owns:
+- TonConnect (and `twaReturnUrl` context, which only works in TWA top-level)
+- Wallet binding RPCs and `/api/wallet/*` calls
+- Stars invoice opening (`tg.openInvoice`)
+- Haptics, theme params, viewport
+
+Your game calls SDK methods like `sdk.promptConnectWallet()` or
+`sdk.requestPurchase()` which postMessage RPC to the shell. The shell
+executes the flow and replies. This is the only way wallet and payment
+flows survive Telegram mini-app iframe nesting cleanly.
+
+**Do NOT add `@tonconnect/ui` (or any wallet/payment SDK) to your game's
+dependencies.** It increases your bundle and won't work — TonConnect from
+within a nested iframe can't detect TWA context and falls back to opening
+the manifest URL in the system browser.
+
+### Standalone dev mode
+
+If your game is loaded outside the shell (`window.parent === window`),
+wallet methods reject with `error: 'shell_required'`. Handle that gracefully:
+
+- `getWalletBinding()` returns `null` (game renders unbound state)
+- `promptConnectWallet()` returns `{success: false, error: 'shell_required'}`
+
+For local development, use the mock helpers exposed on `window`:
+`__mockBindWallet()`, `__mockDisconnect()`, `__mockSetTier(tier)`. These
+work via localStorage and bypass the RPC layer entirely.
+
+### Tier change notifications
+
+Subscribe with `sdk.onTierChange(cb)` to react when the user binds, switches,
+or disconnects a wallet from inside Settings. The shell broadcasts to all
+mounted game iframes — your game doesn't need to poll.
+
+---
+
 ## Wallet Connect — Anti-Patterns
 
 > Read this section before generating any wallet, purchase, or tier-related code.

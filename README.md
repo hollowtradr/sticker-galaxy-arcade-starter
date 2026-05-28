@@ -197,6 +197,8 @@ The SDK ships JIT (Just-In-Time) wallet connect — no persistent "Connect Walle
 
 Stars purchases are **never** gated on wallet binding. Stars is Telegram-native and walletless.
 
+**Architecture note:** The SDK delegates wallet operations to the platform shell via postMessage RPC — it does NOT open TonConnect directly. `@tonconnect/ui` is not a dependency of this template and must not be added. See `BUILD_WITH_AI.md` § Architecture for the full rationale.
+
 ### `getWalletBinding()` — check current binding
 
 ```ts

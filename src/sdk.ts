@@ -14,6 +14,11 @@
 //   Production: https://api.stickergalaxy.io/arcade/v0
 //   Sandbox:    https://sandbox.api.stickergalaxy.io/arcade/v0
 //
+// WALLET & PAYMENTS
+//   Wallet operations are shell-owned. This SDK delegates wallet RPC calls
+//   to the platform shell via postMessage. Games must NOT import TonConnect
+//   directly — it won't work inside a nested iframe.
+//
 // AI ASSISTANTS
 //   All SDK functions are here. Do NOT add fetch() calls in game.ts or ui.ts.
 //   If you need a new SDK endpoint, add a wrapper function in this file.
@@ -32,9 +37,6 @@ import type {
   HolderTier,
   TierChangeEvent,
 } from './types'
-
-import { TonConnectUI } from '@tonconnect/ui'
-import type { TonProofItemReplySuccess } from '@tonconnect/ui'
 
 import {
   mockGetSession,
@@ -65,12 +67,6 @@ const GAME_ID = 'arcade-starter-demo'
 const API_BASE = 'https://api.stickergalaxy.io/arcade/v0'
 
 /**
- * Wallet API base — hosted on babyyoda-bot while wallet endpoints are in preview.
- * Will unify with API_BASE when promoted to the main edge.
- */
-const WALLET_API_BASE = 'https://babyyoda-bot.fly.dev/arcade/v0'
-
-/**
  * Whether to use the mock host instead of the real API.
  * Controlled by the VITE_USE_MOCK environment variable.
  * Default: true (mock active) in dev, false in production builds.
@@ -98,19 +94,12 @@ let _proofOfPlayToken: string | null = null
 /** Cache of last-known wallet binding. Updated by getWalletBinding() and promptConnectWallet(). */
 let _lastBinding: WalletBinding | null = null
 
-/** Registered tier-change callbacks. Fired when refreshTier() returns changed=true. */
+/** Registered tier-change callbacks. Fired when refreshTier() returns changed=true,
+ *  or when the shell broadcasts SG_TIER_CHANGED. */
 let _tierChangeCallbacks: Array<(e: TierChangeEvent) => void> = []
 
-/** TonConnect UI singleton (real mode only). */
-let _tcUI: TonConnectUI | null = null
-
-/** Pending force-bind data cached from a 409 conflict response. */
-interface PendingForceBind {
-  address: string
-  ton_proof: TonProofItemReplySuccess['proof']
-  network: string
-}
-let _pendingForceBind: PendingForceBind | null = null
+/** Guard to ensure the SG_TIER_CHANGED listener is only registered once. */
+let _tierChangeListenerActive = false
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -150,38 +139,75 @@ async function apiGet<T>(path: string): Promise<T | ApiError> {
   }
 }
 
+// ── Wallet RPC ────────────────────────────────────────────────────────────────
+
 /**
- * Status-aware fetch for wallet endpoints (WALLET_API_BASE).
- * Returns { status, data } so callers can branch on HTTP codes (409, 429, etc.).
- * Throws on network failure — callers should wrap in try/catch.
+ * RPC timeout in milliseconds. Wallet connect can require user interaction,
+ * so 60 seconds gives the player time to approve in their wallet app.
  */
-async function walletFetch<T>(
-  method: 'GET' | 'POST' | 'PATCH',
-  path: string,
-  body?: unknown
-): Promise<{ status: number; data: T }> {
-  const init: RequestInit = { method, headers: getHeaders() }
-  if (body !== undefined) init.body = JSON.stringify(body)
-  const res = await fetch(`${WALLET_API_BASE}${path}`, init)
-  const data = (await res.json()) as T
-  return { status: res.status, data }
+const RPC_TIMEOUT_MS = 60_000
+
+/**
+ * Send a wallet RPC request to the platform shell via postMessage and await
+ * the response envelope. Rejects with 'shell_required' when running standalone.
+ *
+ * Wire format (outbound):  { type: 'SG_WALLET_RPC', method, requestId, params? }
+ * Wire format (inbound):   { type: 'SG_WALLET_RPC_RESULT', requestId, ok, data?, error? }
+ */
+function walletRpc<T>(method: string, params?: unknown): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || window.parent === window) {
+      reject(new Error('shell_required'))
+      return
+    }
+    const requestId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const timer = setTimeout(() => {
+      window.removeEventListener('message', onMessage)
+      reject(new Error(`wallet RPC timeout (${method})`))
+    }, RPC_TIMEOUT_MS)
+
+    function onMessage(e: MessageEvent) {
+      const d = e.data as { type?: string; requestId?: string; ok?: boolean; data?: T; error?: string }
+      if (!d || d.type !== 'SG_WALLET_RPC_RESULT' || d.requestId !== requestId) return
+      clearTimeout(timer)
+      window.removeEventListener('message', onMessage)
+      if (d.ok) resolve(d.data as T)
+      else reject(new Error(d.error ?? 'wallet RPC failed'))
+    }
+    window.addEventListener('message', onMessage)
+    window.parent.postMessage(
+      { type: 'SG_WALLET_RPC', method, requestId, params },
+      '*',
+    )
+  })
 }
 
-/** Lazy-init TonConnect UI singleton (real mode only). */
-function getTonConnect(): TonConnectUI {
-  if (!_tcUI) {
-    _tcUI = new TonConnectUI({
-      manifestUrl: 'https://babyyoda-bot.vercel.app/tonconnect-manifest.json',
-      // After wallet approval, return the user back into the Sticker Galaxy mini-app.
-      // SDK consumers should override this to include their game's id, e.g.
-      // 'https://t.me/babyyodatonbot?startapp=arcade_<game_id>' so the platform
-      // shell can deep-link them back into the running game.
-      actionsConfiguration: {
-        twaReturnUrl: 'https://t.me/babyyodatonbot?startapp=arcade' as `${string}://${string}`,
-      },
-    })
-  }
-  return _tcUI
+/**
+ * Ensure the global SG_TIER_CHANGED listener is active (idempotent).
+ * The shell broadcasts this envelope to all mounted game iframes when
+ * the player's wallet binding changes from inside Settings.
+ */
+function ensureTierChangeListener(): void {
+  if (_tierChangeListenerActive) return
+  _tierChangeListenerActive = true
+  window.addEventListener('message', (e: MessageEvent) => {
+    const d = e.data as { type?: string; binding?: WalletBinding | null }
+    if (!d || d.type !== 'SG_TIER_CHANGED') return
+    const newBinding = d.binding ?? null
+    const oldTier: HolderTier = _lastBinding?.tier ?? 'initiate'
+    const newTier: HolderTier = newBinding?.tier ?? 'initiate'
+    if (oldTier === newTier) return // no tier change — skip callbacks
+    const event: TierChangeEvent = {
+      old_tier: oldTier,
+      new_tier: newTier,
+      balance_yoda: newBinding?.balance_yoda ?? 0,
+    }
+    _lastBinding = newBinding
+    for (const cb of _tierChangeCallbacks) cb(event)
+  })
 }
 
 // ── Public SDK functions ──────────────────────────────────────────────────────
@@ -386,9 +412,9 @@ export async function getLeaderboard(limit = 20): Promise<LeaderboardResponse | 
  *
  * Returns the player's current wallet binding or null if unbound.
  *
- * - Caches the result in memory; refreshed on each call.
- * - If the snapshot is >24h old, fires a background refreshTier() best-effort.
- * - Safe to call before each game start to gate TON/YODA features.
+ * Delegates to the platform shell via postMessage RPC in real mode.
+ * Returns null gracefully when running standalone (no parent shell),
+ * so games render their unbound state without throwing.
  *
  * @example
  *   const binding = await sdk.getWalletBinding()
@@ -400,23 +426,12 @@ export async function getWalletBinding(): Promise<WalletBinding | null> {
   if (USE_MOCK) return mockGetWalletBinding()
 
   try {
-    const { status, data } = await walletFetch<{ address: string | null } & Partial<WalletBinding>>(
-      'GET',
-      '/wallet'
-    )
-    if (status === 401) return null
-    if (status !== 200 || !data.address) {
-      _lastBinding = null
-      return null
-    }
-    _lastBinding = data as WalletBinding
-    // Stale snapshot: background refresh (fire-and-forget)
-    const ageMs = Date.now() - new Date(data.last_snapshot_at!).getTime()
-    if (ageMs > 24 * 60 * 60 * 1000) {
-      void refreshTier().catch(() => {})
-    }
-    return _lastBinding
-  } catch {
+    const binding = await walletRpc<WalletBinding | null>('getWalletBinding')
+    _lastBinding = binding
+    return binding
+  } catch (err) {
+    // shell_required → running standalone; return null so game renders gracefully
+    if (err instanceof Error && err.message === 'shell_required') return null
     return null
   }
 }
@@ -424,14 +439,16 @@ export async function getWalletBinding(): Promise<WalletBinding | null> {
 /**
  * promptConnectWallet(opts?)
  *
- * Opens the TonConnect wallet modal so the player can connect and bind their
- * TON wallet. Call only at JIT trigger moments — never persist a button.
+ * Asks the platform shell to open the wallet connect flow. The shell owns
+ * TonConnect — games must never call TonConnect directly.
  *
  * On 409 (existing binding), returns { success: false, existing_binding: {...} }.
  * The game shows Keep/Replace UI. To replace, call promptConnectWallet({ force: true }).
  *
+ * When running standalone (no shell), returns { success: false, error: 'shell_required' }.
+ *
  * @param opts.reason  Optional context shown in the confirm dialog / modal label.
- * @param opts.force   Use cached 409 proof to call /wallet/bind/force without reopening modal.
+ * @param opts.force   Ask the shell to force-replace an existing binding.
  *
  * @example
  *   const result = await sdk.promptConnectWallet({ reason: 'purchase' })
@@ -446,108 +463,34 @@ export async function promptConnectWallet(
 ): Promise<ConnectResult> {
   if (USE_MOCK) return mockPromptConnectWallet(opts)
 
-  const tc = getTonConnect()
-
-  // Force bind: use address + proof cached from the last 409 response.
-  // Avoids reopening the wallet modal for a simple Keep/Replace confirmation.
-  if (opts?.force) {
-    if (!_pendingForceBind) {
-      return { success: false, error: 'no_pending_bind' }
-    }
-    try {
-      const { status, data } = await walletFetch<WalletBinding>(
-        'POST', '/wallet/bind/force', _pendingForceBind
-      )
-      _pendingForceBind = null
-      if (status === 200) {
-        _lastBinding = data
-        return { success: true, address: data.address, tier: data.tier }
+  try {
+    const result = await walletRpc<ConnectResult>('promptConnectWallet', opts)
+    if (result.success && result.address) {
+      // Update local cache from the shell's confirmed binding
+      _lastBinding = {
+        address: result.address,
+        tier: result.tier ?? 'initiate',
+        balance_yoda: 0,
+        last_snapshot_at: new Date().toISOString(),
+        bind_source: 'mini-app',
+        address_public: true,
+        tonproof_verified: true,
       }
-      return { success: false, error: `force_bind_failed_${status}` }
-    } catch (err) {
-      return { success: false, error: String(err) }
     }
+    return result
+  } catch (err) {
+    if (err instanceof Error && err.message === 'shell_required') {
+      return { success: false, error: 'shell_required' }
+    }
+    return { success: false, error: String(err) }
   }
-
-  // Normal flow: disconnect TC first to guarantee a fresh tonProof on reconnect.
-  if (tc.connected) {
-    await tc.disconnect()
-  }
-
-  // Generate a nonce payload for this tonProof request.
-  const payload = `arcade-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  tc.setConnectRequestParameters({ state: 'ready', value: { tonProof: payload } })
-
-  return new Promise<ConnectResult>((resolve) => {
-    let settled = false
-    let unsubStatus: (() => void) | null = null
-    let unsubModal: (() => void) | null = null
-
-    function settle(result: ConnectResult): void {
-      if (settled) return
-      settled = true
-      unsubStatus?.()
-      unsubModal?.()
-      tc.setConnectRequestParameters(null)
-      resolve(result)
-    }
-
-    // Watch for wallet connection with tonProof
-    unsubStatus = tc.onStatusChange(async (wallet) => {
-      if (!wallet) return // disconnected event — ignore
-
-      const address = wallet.account.address
-      const network = wallet.account.chain
-      const proofReply = wallet.connectItems?.tonProof
-
-      // tonProof is mandatory for arcade binding
-      if (!proofReply || !('proof' in proofReply)) {
-        settle({ success: false, error: 'tonproof_failed' })
-        return
-      }
-
-      const tonProof = (proofReply as TonProofItemReplySuccess).proof
-
-      try {
-        const { status, data } = await walletFetch<
-          WalletBinding | { existing: { address: string; tier: HolderTier; bind_source: string } } | { error?: string }
-        >('POST', '/wallet/bind', { address, ton_proof: tonProof, network })
-
-        if (status === 200) {
-          const ok = data as WalletBinding
-          _lastBinding = ok
-          _pendingForceBind = null
-          settle({ success: true, address: ok.address, tier: ok.tier })
-        } else if (status === 409) {
-          // Cache proof so force-bind skips reopening TonConnect
-          _pendingForceBind = { address, ton_proof: tonProof, network }
-          const conflict = data as { existing: { address: string; tier: HolderTier; bind_source: string } }
-          settle({ success: false, existing_binding: conflict.existing })
-        } else {
-          const errData = data as { error?: string; detail?: string }
-          settle({ success: false, error: errData.error ?? errData.detail ?? `bind_failed_${status}` })
-        }
-      } catch (err) {
-        settle({ success: false, error: String(err) })
-      }
-    })
-
-    // Detect user closing modal without connecting
-    unsubModal = tc.onModalStateChange((state) => {
-      if (state.status === 'closed' && state.closeReason === 'action-cancelled') {
-        settle({ success: false, error: 'dismissed' })
-      }
-    })
-
-    void tc.openModal()
-  })
 }
 
 /**
  * refreshTier()
  *
- * Requests a fresh $YODA balance snapshot and returns the current tier.
- * Fires onTierChange() callbacks if the tier changed since last snapshot.
+ * Asks the shell to request a fresh $YODA balance snapshot and returns the
+ * current tier. Fires onTierChange() callbacks if the tier changed.
  * Throws on 429 rate-limit — caller should handle gracefully.
  *
  * @example
@@ -557,12 +500,7 @@ export async function promptConnectWallet(
 export async function refreshTier(): Promise<{ tier: HolderTier; changed: boolean }> {
   if (USE_MOCK) return mockRefreshTier()
 
-  const { status, data } = await walletFetch<{ tier: HolderTier; changed: boolean; balance_yoda: number }>(
-    'POST', '/wallet/refresh', {}
-  )
-
-  if (status === 429) throw new Error('rate_limited')
-  if (status !== 200) throw new Error(`refresh_failed_${status}`)
+  const data = await walletRpc<{ tier: HolderTier; changed: boolean; balance_yoda: number }>('refreshTier')
 
   if (data.changed && _lastBinding) {
     const event: TierChangeEvent = {
@@ -579,9 +517,39 @@ export async function refreshTier(): Promise<{ tier: HolderTier; changed: boolea
 }
 
 /**
+ * disconnectWallet()
+ *
+ * Asks the platform shell to disconnect and unbind the current wallet.
+ * Clears the local binding cache on success.
+ *
+ * @example
+ *   const { success } = await sdk.disconnectWallet()
+ *   if (success) console.log('Wallet disconnected')
+ */
+export async function disconnectWallet(): Promise<{ success: boolean }> {
+  if (USE_MOCK) {
+    mockDisconnectWallet()
+    _lastBinding = null
+    return { success: true }
+  }
+
+  try {
+    const result = await walletRpc<{ success: boolean }>('disconnectWallet')
+    if (result.success) _lastBinding = null
+    return result
+  } catch (err) {
+    if (err instanceof Error && err.message === 'shell_required') {
+      return { success: false }
+    }
+    return { success: false }
+  }
+}
+
+/**
  * openSettings(section?)
  *
  * Asks the host shell to open the Settings screen.
+ * Fire-and-forget — not a request/response RPC.
  * Posts { type: 'OPEN_SETTINGS', section } to window.parent.
  * No-ops when running standalone (no parent shell).
  */
@@ -596,8 +564,10 @@ export function openSettings(section?: 'wallet' | 'sound' | 'haptics' | 'about')
 /**
  * onTierChange(callback)
  *
- * Subscribe to holder-tier change events. Fires when refreshTier()
- * (or the background stale-snapshot refresh) detects a tier change.
+ * Subscribe to holder-tier change events. Fires when:
+ * - `refreshTier()` detects a tier change (explicit poll)
+ * - The shell broadcasts `SG_TIER_CHANGED` (e.g., user binds/changes wallet in Settings)
+ *
  * Returns an unsubscribe function.
  *
  * @example
@@ -607,6 +577,7 @@ export function openSettings(section?: 'wallet' | 'sound' | 'haptics' | 'about')
  *   // Later: unsub()
  */
 export function onTierChange(cb: (e: TierChangeEvent) => void): () => void {
+  ensureTierChangeListener()
   _tierChangeCallbacks.push(cb)
   return () => { _tierChangeCallbacks = _tierChangeCallbacks.filter((fn) => fn !== cb) }
 }

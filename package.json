@@ -1,6 +1,6 @@
 {
   "name": "sticker-galaxy-arcade-starter",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Starter template for Sticker Galaxy Arcade minigames — vanilla TypeScript + Vite",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,6 @@
     "vite": "^5.4.11"
   },
   "dependencies": {
-    "@tonconnect/ui": "^2.0.0",
     "pixi.js": "^7.4.2"
   }
 }
