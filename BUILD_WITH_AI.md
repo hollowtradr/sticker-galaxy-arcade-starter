@@ -10,6 +10,36 @@ The pattern is simple:
 
 ---
 
+## Wallet Connect — Anti-Patterns
+
+> Read this section before generating any wallet, purchase, or tier-related code.
+
+```
+DO NOT add a persistent "Connect Wallet" button anywhere in your game UI.
+DO NOT block Stars purchases on wallet binding — Stars is Telegram-native and walletless.
+DO NOT assume getHolderTier() reflects a bound wallet — always call getWalletBinding() first.
+DO NOT call promptConnectWallet() on game load, in a useEffect, or on a timer.
+
+DO call promptConnectWallet() only at JIT moments:
+  1. Player explicitly selects TON or YODA as purchase currency
+  2. Player taps a "Check your tier" CTA (when unbound / initiate state)
+  3. Player opens Settings → Wallet section
+  4. Your game has a deliberate "Verify holdings" button (user-initiated)
+
+DO handle promptConnectWallet() returning { success: false, error: 'dismissed' }
+  — this means the player closed the modal. Fall back to Stars or show tier-unaware UX.
+
+DO handle the 409 case (existing_binding returned):
+  — show a Keep/Replace dialog, then call promptConnectWallet({ force: true }) if replacing.
+
+DO gate requestPurchase(currency='TON') and requestPurchase(currency='YODA') on a wallet.
+  — The SDK does this automatically; do not add a second check.
+
+NEVER block requestPurchase(currency='Stars') on wallet state.
+```
+
+---
+
 ## Before You Build Monetization UI: Read the YODA Tier Schema
 
 If you are building any UI that shows prices, revive prompts, daily play counts, or cosmetic discounts, **read the `yoda_tier_perks` block in `manifest.json` first**. The host applies these values server-side; your UI should reflect them accurately.

@@ -134,6 +134,52 @@ export interface GameState {
   isPlaying: boolean
 }
 
+// ── Wallet Binding & Holder Tiers ────────────────────────────────────────────
+
+/**
+ * Five-tier holder status based on $YODA balance snapshot.
+ * Returned by getWalletBinding() and refreshTier().
+ */
+export type HolderTier = 'initiate' | 'padawan' | 'knight' | 'master' | 'grandmaster'
+
+/**
+ * Full wallet binding record returned by GET /arcade/v0/wallet when bound.
+ */
+export interface WalletBinding {
+  address: string
+  tier: HolderTier
+  balance_yoda: number
+  last_snapshot_at: string  // ISO8601
+  bind_source: 'bot' | 'mini-app' | 'arcade'
+  address_public: boolean
+  tonproof_verified: boolean
+}
+
+/**
+ * Returned by promptConnectWallet().
+ *
+ * On 409 (wallet already bound elsewhere) existing_binding is set.
+ * The game should show Keep/Replace UI and call promptConnectWallet({ force: true })
+ * if the user chooses to replace.
+ */
+export interface ConnectResult {
+  success: boolean
+  address?: string
+  tier?: HolderTier
+  error?: string
+  /** 409 case — client must show Keep/Replace UI */
+  existing_binding?: { address: string; tier: HolderTier; bind_source: string }
+}
+
+/**
+ * Fired by onTierChange() callbacks when a wallet refresh detects a tier change.
+ */
+export interface TierChangeEvent {
+  old_tier: HolderTier
+  new_tier: HolderTier
+  balance_yoda: number
+}
+
 // ── postMessage events (host ↔ game) ─────────────────────────────────────────
 
 export interface HostMessage {

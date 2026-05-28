@@ -186,6 +186,94 @@ Full rules: see the [Arcade Charter](https://docs.stickergalaxy.io/arcade-charte
 
 ---
 
+## Wallet Binding & Tier Detection
+
+The SDK ships JIT (Just-In-Time) wallet connect — no persistent "Connect Wallet" button, no blocking on load. Wallets are requested exactly at four moments:
+
+1. Player explicitly selects **TON or YODA** as purchase currency
+2. Player taps a **"Check your tier" CTA** (when they're unbound/initiate)
+3. Player opens **Settings → Wallet** section
+4. Your game has a deliberate **"Verify holdings" button**
+
+Stars purchases are **never** gated on wallet binding. Stars is Telegram-native and walletless.
+
+### `getWalletBinding()` — check current binding
+
+```ts
+import * as sdk from './sdk'
+
+const binding = await sdk.getWalletBinding()
+if (binding) {
+  console.log(binding.tier)          // 'padawan'
+  console.log(binding.balance_yoda)  // 2500
+  console.log(binding.address)       // 'EQ...'
+} else {
+  // Player is unbound — show initiate-tier UX
+}
+```
+
+If the snapshot is >24h old, a background `refreshTier()` fires automatically.
+
+### `promptConnectWallet()` — JIT wallet connect + bind
+
+```ts
+// Normal flow
+const result = await sdk.promptConnectWallet({ reason: 'purchase' })
+if (result.success) {
+  console.log('Bound:', result.address, result.tier)
+} else if (result.existing_binding) {
+  // 409 — player already has a wallet bound from another source
+  // Show Keep/Replace UI
+  const replace = confirm(`Replace existing wallet ${result.existing_binding.address}?`)
+  if (replace) {
+    const forceResult = await sdk.promptConnectWallet({ force: true })
+    // force=true uses cached proof — no modal reopened
+  }
+} else if (result.error === 'dismissed') {
+  // Player closed the modal — fall back to Stars or show tier-unaware UX
+}
+```
+
+### `refreshTier()` — manual snapshot refresh
+
+```ts
+const { tier, changed } = await sdk.refreshTier()
+if (changed) console.log('Tier updated to', tier)
+```
+
+Throws `'rate_limited'` on 429 — catch and ignore or show a friendly message.
+
+### `onTierChange(callback)` — reactive tier updates
+
+```ts
+const unsub = sdk.onTierChange(({ old_tier, new_tier, balance_yoda }) => {
+  showTierBanner(`Level up: ${new_tier}!`)
+})
+// Call unsub() to remove the listener
+```
+
+### `openSettings(section?)` — deep-link to host settings
+
+```ts
+sdk.openSettings('wallet')  // opens Wallet tab in host settings
+sdk.openSettings('sound')   // opens Sound tab
+```
+
+### Mock helpers (DevTools console)
+
+```js
+window.__mockBindWallet()            // bind padawan wallet
+window.__mockBindWallet('EQabc', 'knight')  // bind specific address + tier
+window.__mockDisconnect()            // reset to unbound
+window.__mockSetTier('master')       // change tier on existing binding
+window.__mockStaleSnapshot()         // age snapshot 48h (triggers background refresh)
+window.__mockUnverifyProof()         // set tonproof_verified=false
+```
+
+For the full spec — tier thresholds, proof validation, privacy settings, force-bind flow — see `ARCADE_SDK_v0.md` §11.
+
+---
+
 ## Resources
 
 | Resource | URL |
